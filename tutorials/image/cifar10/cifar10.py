@@ -45,6 +45,8 @@ import tensorflow as tf
 
 import cifar10_input
 
+import numpy as np
+
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
@@ -250,10 +252,20 @@ def inference(images):
 
   # local4
   with tf.variable_scope('local4') as scope:
+
     weights = _variable_with_weight_decay('weights', shape=[384, 192],
                                           stddev=0.04, wd=0.004)
+
+    # EXERCISE: Edit the architecture to exactly reproduce the locally connected
+    # architecture in the top layer.
+    bandnp = np.zeros((384,192), np.float32)
+    for i in range(192):
+      bandnp[i * 2:min((i * 2) + 2, bandnp.shape[0]), i] = 1
+    band = tf.constant(bandnp)
+    local_weights = tf.multiply(weights, band)
+
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
-    local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
+    local4 = tf.nn.relu(tf.matmul(local3, local_weights) + biases, name=scope.name)
     _activation_summary(local4)
 
   # linear layer(WX + b),
@@ -268,7 +280,11 @@ def inference(images):
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
     _activation_summary(softmax_linear)
 
-  return softmax_linear
+  # EXERCISE: Edit the network architecture to return normalized predictions using
+  # tf.nn.softmax.
+  softmax_normalised = tf.nn.softmax(softmax_linear)
+
+  return softmax_normalised
 
 
 def loss(logits, labels):
